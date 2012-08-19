@@ -1,0 +1,134 @@
+# TODO.txt
+
+- Point assembler.scm to examples and verify that it produces assembly
+  code.  We should probably start with a very simple command line
+  interface, something like
+
+  assembler.scm source-file output-file
+
+  Sending the output to stdout by default makes little sense here, as
+  it's binary data.
+
+- Then verify that hello-world disassembles as well and produces code
+  that can be fed to the assembler again. :-)
+
+- Also verify that the produced output can be loaded in the C64 emulator.
+
+- Eventually I'll want to write assembler using Nepenthe.  We could, for
+  example, benefit from macro that make it easy to write and call "functions"
+  (subroutines).
+
+  E.g. let's say we're writing a Rogue variant for the C64:
+
+  (change-screen-color a: #x30 x: #x00)
+
+  sets A to 0x30, X to 0, and "calls" the relevant subroutine (by jumping to
+  it and jumping back).  This should essentially emit a number of statements,
+  so we can determine the length as usual, etc.
+
+  We can also write higher-level functions, as long as we translate it
+  properly to assembly:
+
+  (display-character #\@ 20 10 color: 'red)
+
+  does what it says, but translates things to the appropriate 6510 assembler
+  first.
+
+- We might also benefit from an S-expr notation for opcodes.  Unfortunately
+  we'd have to specify the mode separately:
+
+  (lda im #x04)
+  (label hello)
+  (jsr do-something)     ;; ?
+  (jmp hello)            ;; ?
+
+  This should really only be a thin facade that translates to an opcode like
+  we entered it as a string.  (lda im #x04) -> "LDA #$04", etc.
+
+  NOTE: These are actually *macros*!  A call to change-screen-color is
+  not a simple JSR, it produces a number of commands that are included
+  verbatim.  We need to, if we want to specify color and all that.
+
+- I will probably also want a number of built-in labels, maybe
+  starting with C64: and C16: and such... think C64:CHROUT for $FFD2 (?), etc.
+
+- It would probably be very useful to be able to write sasm-exprs that evaluate
+  certain members.  E.g.
+
+  (define x #xC0)
+  (sasm (lda im ,x))
+
+  There is currently no way to do this.  The current code would just pass the
+  s-expr verbatim to sasm-translate, running into a snag when trying to
+  evaluate ',x'.
+
+- Assembler: I also want a debugging option... display what codes are 
+  generated for each statement.
+
+[2008-07-08]
+
+- SASM: Maybe we could enter a label as just a name, e.g.
+
+    (sasm
+      (ldx im #x00)
+      BEGIN_LOOP:
+      (lda ax GREETING)
+      ...)
+
+- SASM: At least the "implied" opcodes should not need the 'imp' mode indicator.
+  So rather than
+
+    (rts imp)
+
+  ...we should be able to say simply:
+
+    (rts)
+
+- There should be a way to give names to certain addresses.  E.g. $FFD2 could
+  be referenced as CHROUT, etc.  
+
+  (There are two flavors here: user-defined, and built-in.
+  E.g. CHROUT would be built-in.  Maybe we can use a way to
+  distinguish them from regular labels, e.g. use "*CHROUT" or
+  something?  Or maybe "C64:CHROUT".)
+
+- We need a way to define custom SASM macros, and a way to insert them in
+  a SASM expression.  E.g.
+
+  (define-sasm-macro (output c)
+    (lda im ,c)
+    (jsr .. #xFFD2))
+
+  (sasm
+    (call (output #x32))
+    ...)
+
+- We're going to need a high-level function/macro that takes a
+  filename, start address, and a SASM block, and assembles and writes
+  the whole shebang, for eash file creation.
+
+- We also need a way to generate a unique label, for macros that are called
+  multiple times in a program.  (If we hardcoded the label name, we'd use
+  the same label multiple times...)
+
+- We need a way to make the string printing routine in helloworld.asm
+  more generic.  We should be able to somehow pass in any
+  address/label referring to a string, not just GREETING.  Macros
+  don't help much here because they would result in a separate
+  printing routine for every string.  Rather, we need a way to make
+  the address (in LDA <address>,X) variable.
+
+- Labels should be case-insensitive!
+
+- Auto-load labels like in kernal.scm!
+
+- Maybe we should have a toplevel program nepenthe.scm, to be used like this:
+
+  csi -ss nepenthe.scm <action> <type> <filename>
+
+  e.g.
+
+  csi -ss nepenthe.scm a c64 foo.asm
+
+  Of course, if everything is written in SASM, then we might not need
+  this... just import the relevant modules and use assemble-and-write.

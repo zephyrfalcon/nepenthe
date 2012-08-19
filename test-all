@@ -1,0 +1,4 @@
+#!/bin/sh
+
+csi -s test-all.scm | grep 'FAIL\|ERROR' || echo OK
+
