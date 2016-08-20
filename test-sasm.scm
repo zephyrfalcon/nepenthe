@@ -58,16 +58,17 @@
   (test '("LDA #$20" "JSR $FFD2") (chrout2 32))
 )
 
-(test-group "sasm-translate-and-macros"
-  (define-sasm-macro (chrout c)
-    (lda im ,c)
-    (jsr a #xFFD2))
-  (test '("LDA #$20" "JSR $FFD2") (sasm-translate '(call (chrout 32))))
+;; this needs to be global, otherwise CALL in SASM-TRANSLATE won't "see" it
+(define-sasm-macro (global-chrout c)
+  (lda im ,c)
+  (jsr a #xFFD2))
 
+(test-group "sasm-translate-and-macros"
+  (test '("LDA #$20" "JSR $FFD2") (sasm-translate '(call (global-chrout 32))))
   (define blurb
     (sasm
      (ldx im 32)
-     (call (chrout 13))))
+     (call (global-chrout 13))))
   (printf "blurb:~n~s~n" blurb)
   (test-assert (equal? '("LDX #$20" "LDA #$0D" "JSR $FFD2") blurb))
 )
